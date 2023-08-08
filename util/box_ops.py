@@ -25,8 +25,11 @@ def box_iou(boxes1, boxes2):
     area1 = box_area(boxes1)
     area2 = box_area(boxes2)
 
-    lt = torch.max(boxes1[:, None, :2], boxes2[:, :2])  # [N,M,2]
-    rb = torch.min(boxes1[:, None, 2:], boxes2[:, 2:])  # [N,M,2]
+    lt = torch.max(boxes1[:, None, :2], boxes2[:, :2])  # [N,M,2] # left-top。“:2”表示取左上坐标，两个左上中最靠右下的为LT
+    rb = torch.min(boxes1[:, None, 2:], boxes2[:, 2:])  # [N,M,2] # right-bottom。“2:”表示取右下坐标，两个右下中最靠左上的为RB
+    # 此即paper中说的 “The areas of unions or intersections are computed by min / max of the linear functions of b_σ(i) and b_i, 
+    #                 which makes the loss sufficiently well-behaved for stochastic gradients”
+    # 这里说的“linear functions of XX” 是为了强调该操作不影响用梯度下降法来作优化。xx的取值是关于model的参数连续的，且min、max操作不影响梯度操作，从而iou loss是可以用梯度下降法来优化。
 
     wh = (rb - lt).clamp(min=0)  # [N,M,2]
     inter = wh[:, :, 0] * wh[:, :, 1]  # [N,M]
@@ -54,6 +57,7 @@ def generalized_box_iou(boxes1, boxes2):
 
     lt = torch.min(boxes1[:, None, :2], boxes2[:, :2])
     rb = torch.max(boxes1[:, None, 2:], boxes2[:, 2:])
+    # 上面取道德lt, rb正好是两个框的最小外接四边形
 
     wh = (rb - lt).clamp(min=0)  # [N,M,2]
     area = wh[:, :, 0] * wh[:, :, 1]
