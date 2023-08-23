@@ -164,6 +164,7 @@ class SetCriterion(nn.Module):
     def loss_masks(self, outputs, targets, indices, num_boxes):
         """Compute the losses related to the masks: the focal loss and the dice loss.
            targets dicts must contain the key "masks" containing a tensor of dim [nb_target_boxes, h, w]
+           切割任务的loss，segmentation
         """
         assert "pred_masks" in outputs
 
@@ -186,7 +187,9 @@ class SetCriterion(nn.Module):
         target_masks = target_masks.view(src_masks.shape)
         losses = {
             "loss_mask": sigmoid_focal_loss(src_masks, target_masks, num_boxes),
-            "loss_dice": dice_loss(src_masks, target_masks, num_boxes),
+            "loss_dice": dice_loss(src_masks, target_masks, num_boxes), # 注意，dice loss用于分割，且 src_masks 是未按threshold切分的原始的逐点连续概率值。
+                                                                        # 所以通过优化 dice_loss， 就是让这些逐点概率值更接近target_masks, 从而使得预测的mask与target更接近
+                                                                        # 而本文种gIOU loss，则是两个检测框的按长方形算的loss
         }
         return losses
 
@@ -206,8 +209,8 @@ class SetCriterion(nn.Module):
         loss_map = {
             'labels': self.loss_labels,
             'cardinality': self.loss_cardinality,
-            'boxes': self.loss_boxes,
-            'masks': self.loss_masks
+            'boxes': self.loss_boxes, # 用于检测
+            'masks': self.loss_masks  # 用于切割时
         }
         assert loss in loss_map, f'do you really want to compute {loss} loss?'
         return loss_map[loss](outputs, targets, indices, num_boxes, **kwargs)
